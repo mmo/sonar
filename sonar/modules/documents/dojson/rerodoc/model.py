@@ -61,6 +61,7 @@ TYPE_MAPPINGS = {
 def marc21_to_type_and_organisation(self, key, value):
     """Get document type and organisation from 980 field."""
     subdivision_name = None
+    record = overdo.blob_record
 
     # organisation
     if value.get('b'):
@@ -115,6 +116,71 @@ def marc21_to_type_and_organisation(self, key, value):
                     '$ref':
                     SubdivisionRecord.get_ref_link('subdivisions', subdivision_pid)
                 }]
+
+        # Specific transformation for `hesso` - 11 institutions in RERO DOC
+        # are imported to a new `hesso` institution in SONAR
+        if organisation in [
+            'heascne', 'heasju', 'hedsfr', 'hegge', 'hedsge',
+            'hetsge', 'hetsvs', 'hegtvs', 'hedsvs', 'heivs', 'esdsvs'
+        ]:
+            # include the original organisation code (from RERO DOC) as a note,
+            # for later reference
+            notes = []
+            if 'notes' in self:
+                notes = self['notes']
+            institution = None
+            code = None
+            
+            # replace the original RERO DOC institution codes and names
+            # by their current equivalent
+            # NB: records from 'esdsvs' are imported as 'hetsvs'
+            inst_mapping = {
+                'heascne': ('hearc-cor', 'Haute Ecole Arc Conservation-Restauration Neuchâtel'),
+                'heasju': ('hearc-san', 'Haute Ecole Arc Santé'),
+                'hedsfr': ('hedsfr', 'Haute école de santé Fribourg'),
+                'hegge': ('hegge', 'Haute école de gestion Genève'),
+                'hedsge': ('hedsge', 'Haute école de santé Genève'),
+                'hetsge': ('hetsge', 'Haute école de travail social Genève'),
+                'hetsvs': ('hetsvs', 'Haute Ecole de Travail Social Valais'),
+                'esdsvs': ('hetsvs', 'Haute Ecole de Travail Social Valais'),
+                'hegtvs': ('hegvs', 'Haute Ecole de Gestion Valais'),
+                'hedsvs': ('hedsvs', 'Haute Ecole de Santé Valais'),
+                'heivs': ('heivs', 'Haute Ecole d\'Ingénierie Valais')
+            }
+            (code, institution) = inst_mapping.get(organisation, (None, None))
+
+            # reject deprecated institution names
+            depracated_names = (
+                'Haute Ecole Arc Conservation-Restauration',
+                'Haute Ecole de Santé de Fribourg',
+                'Haute école de gestion de Genève',
+                'Haute école de travail social de Genève',
+                'Haute Ecole de Travail Social',
+                'Haute Ecole de Gestion & Tourisme',
+                'Haute Ecole d\'Ingénierie',
+            )
+
+            # include the institution name as note
+            if not institution:
+                # get it from source MARC if not found in the dict
+                institution = record.get('919__', {}).get('a')
+            if (institution and institution not in notes and
+                    institution not in depracated_names):
+                notes.append(institution)
+            # include faculty and department information as notes, as well
+            faculty = record.get('918__', {}).get('a')
+            if (faculty and faculty not in notes and
+                    faculty not in depracated_names):
+                notes.append(faculty)
+            department = record.get('918__', {}).get('c')
+            if department and department not in notes:
+                notes.append(department)
+            # add a note with a code identifiying the source institution
+            notes.append('hesso:' + code)
+            self['notes'] = notes
+            # from now on, the organisation code is `hesso`
+            organisation = 'hesso'
+                
 
         # Specific transformation for `bpuge` and `mhnge`, because the real
         # acronym is `vge`.
@@ -252,17 +318,19 @@ def marc21_to_title_246(self, key, value):
 @utils.ignore_value
 def marc21_to_edition_statement(self, key, value):
     """Get edition statement data."""
-    if not value.get('a') or not value.get('b'):
+    if not value.get('a'):
         return None
-
-    return {
+    
+    editionStatement = {
         'editionDesignation': {
             'value': value.get('a')
-        },
-        'responsibility': {
-            'value': value.get('b')
-        },
+        }
     }
+    if value.get('b'):
+        editionStatement['responsibility'] = {
+            'value': value.get('b')
+        }
+    return editionStatement
 
 
 @overdo.over('provisionActivity', '^260..')
@@ -762,7 +830,7 @@ def marc21_to_classification_field_084(self, key, value):
 @utils.for_each_value
 @utils.ignore_value
 def marc21_to_content_note(self, key, value):
-    """Extract collection for record."""
+    """Extract content note for record."""
     return value.get('a')
 
 
