@@ -22,5 +22,13 @@
     "metadataprefix": "oai_openaire",
     "comment": "",
     "setspecs": ""
+  },
+  {
+    "key": "soap2",
+    "name": "SOAP2",
+    "url": "https://ojs.soap2.ch/oai",
+    "metadataprefix": "marcxml",
+    "comment": "",
+    "setspecs": ""
   }
 ]

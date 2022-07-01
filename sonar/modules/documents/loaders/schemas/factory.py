@@ -20,6 +20,7 @@
 from .archive_ouverte_unige import ArchiveOuverteUnigeSchema
 from .boris import BorisSchema
 from .rerodoc import RerodocSchema
+from .soap2 import Soap2Schema
 
 
 class LoaderSchemaFactory():
@@ -28,7 +29,8 @@ class LoaderSchemaFactory():
     schemas = {
         'rerodoc': RerodocSchema,
         'archive_ouverte_unige': ArchiveOuverteUnigeSchema,
-        'boris': BorisSchema
+        'boris': BorisSchema,
+        'soap2': Soap2Schema
     }
 
     @staticmethod
